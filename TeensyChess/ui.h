@@ -50,4 +50,4 @@ PieceType uiPromotionAt(int x, int y);
 
 void uiSplash();
 // Lets the user choose a color and a level. Returns false if cancelled.
-bool uiNewGameDialog(uint8_t &humanWhite, uint8_t &level);
+int8_t uiNewGameDialog(uint8_t &humanWhite, uint8_t &level);

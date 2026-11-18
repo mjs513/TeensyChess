@@ -47,6 +47,7 @@ uint16_t squareBuf[SQUARE_SIZE * SQUARE_SIZE];
 // What is currently drawn on each square, to only redraw squares that changed
 uint32_t drawnKey[64];
 bool boardValid = false;
+bool autoMode = false;
 
 enum Marker : uint8_t { MARK_NONE, MARK_DOT, MARK_CAPTURE };
 
@@ -135,12 +136,12 @@ void textAt(const char *text, int x, int y, const ILI9341_t3_font_t &font, uint1
 
 void textRight(const char *text, int xRight, int y, const ILI9341_t3_font_t &font, uint16_t color) {
   tft.setFont(font);
-  textAt(text, xRight - tft.measureTextWidth(text), y, font, color);
+  textAt(text, xRight - tft.strPixelLen(text), y, font, color);
 }
 
 void textCentered(const char *text, int xCenter, int y, const ILI9341_t3_font_t &font, uint16_t color) {
   tft.setFont(font);
-  textAt(text, xCenter - tft.measureTextWidth(text) / 2, y, font, color);
+  textAt(text, xCenter - tft.strPixelLen(text) / 2, y, font, color);
 }
 
 // Draws text in the largest of the given fonts (largest first) that fits maxWidth
@@ -149,7 +150,7 @@ void textFit(const char *text, int x, int y, int maxWidth, const ILI9341_t3_font
   int i = 0;
   for (; i < count - 1; i++) {
     tft.setFont(*fonts[i]);
-    if (tft.measureTextWidth(text) <= maxWidth) break;
+    if (tft.strPixelLen(text) <= maxWidth) break;
   }
   textAt(text, x, y, *fonts[i], color);
 }
@@ -199,6 +200,15 @@ void uiDrawBoard(const Position &pos, const BoardView &view) {
     bool light = (file_of(s) + rank_of(s)) & 1;
     uint16_t bg = light ? COLOR_LIGHT_SQUARE : COLOR_DARK_SQUARE;
 
+  if (autoMode)
+  {
+    if (s == checkedKing)
+      bg = COLOR_CHECK;
+    else if (s == view.lastFrom || s == view.lastTo)
+      bg = light ? COLOR_LAST_LIGHT : COLOR_LAST_DARK;
+  }
+  else
+  {
     if (s == view.selected)
       bg = COLOR_SELECTED;
     else if (s == checkedKing)
@@ -207,6 +217,7 @@ void uiDrawBoard(const Position &pos, const BoardView &view) {
       bg = light ? COLOR_HINT_LIGHT : COLOR_HINT_DARK;
     else if (s == view.lastFrom || s == view.lastTo)
       bg = light ? COLOR_LAST_LIGHT : COLOR_LAST_DARK;
+  }
 
     Piece pc = pos.piece_on(s);
     Marker marker = MARK_NONE;
@@ -397,8 +408,8 @@ void uiSplash() {
   textCentered("Tap the screen to calibrate touch", SCREEN_W / 2, 175, Arial_10, COLOR_PANEL_ACCENT);
 }
 
-bool uiNewGameDialog(uint8_t &humanWhite, uint8_t &level) {
-  const Rect btnWhite{50, 62, 105, 34}, btnBlack{165, 62, 105, 34};
+int8_t uiNewGameDialog(uint8_t &humanWhite, uint8_t &level) {
+  const Rect btnWhite{20, 62,  85, 34}, btnBlack{115, 62,  85, 34}, btnAuto{210, 62,  85, 34};
   const Rect btnMinus{50, 136, 44, 34}, btnPlus{226, 136, 44, 34};
   const Rect btnStart{50, 196, 105, 34}, btnCancel{165, 196, 105, 34};
 
@@ -418,22 +429,24 @@ bool uiNewGameDialog(uint8_t &humanWhite, uint8_t &level) {
       redrawAll = false;
     }
 
-    dialogButton(btnWhite, "White", white);
-    dialogButton(btnBlack, "Black", !white);
+    dialogButton(btnWhite, "White", white && !autoMode);
+    dialogButton(btnBlack, "Black", !white && !autoMode);
+    dialogButton(btnAuto, "Auto", autoMode);
 
     // Level number and a short description
     tft.fillRect(btnMinus.x + btnMinus.w + 2, 132, btnPlus.x - btnMinus.x - btnMinus.w - 4, 58, COLOR_PANEL_BG);
     char buf[8];
     snprintf(buf, sizeof(buf), "%d", lvl);
-    textCentered(buf, SCREEN_W / 2, 138, Arial_20_Bold, COLOR_PANEL_TEXT);
+    textCentered(buf, SCREEN_W / 3, 138, Arial_20_Bold, COLOR_PANEL_TEXT);
     const char *desc = lvl < 5 ? "beginner" : lvl < 10 ? "casual" : lvl < 15 ? "club player" : lvl < 20 ? "strong" : "full strength";
-    textCentered(desc, SCREEN_W / 2, 166, Arial_9, COLOR_PANEL_MUTED);
+    textCentered(desc, SCREEN_W / 3, 166, Arial_9, COLOR_PANEL_MUTED);
 
     // Wait for a tap on one of the buttons
     int x, y;
     while (!getTap(x, y)) delay(10);
 
-    if (btnWhite.contains(x, y)) white = 1;
+    if (btnAuto.contains(x,y)) autoMode = !autoMode;
+    else if (btnWhite.contains(x, y)) white = 1;
     else if (btnBlack.contains(x, y)) white = 0;
     else if (btnMinus.contains(x, y) && lvl > 0) lvl--;
     else if (btnPlus.contains(x, y) && lvl < MAX_LEVEL) lvl++;
@@ -442,11 +455,17 @@ bool uiNewGameDialog(uint8_t &humanWhite, uint8_t &level) {
       humanWhite = white;
       level = lvl;
       waitForRelease();
-      return true;
+
+      if (autoMode)
+      {
+        humanWhite = 1;
+        return(2);
+      }
+      else return white;
     } else if (btnCancel.contains(x, y)) {
       dialogButton(btnCancel, "Cancel", true);
       waitForRelease();
-      return false;
+      return -1;
     }
   }
 }

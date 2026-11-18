@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include <ILI9341_t3.h>
-#include <XPT2046_Touchscreen.h>
+#include <ST7796_t3.h>
+#include <Adafruit_FT6206.h>
 
-extern ILI9341_t3 tft;
-extern XPT2046_Touchscreen touch;
+extern ST7796_t3 tft;
+extern Adafruit_FT6206 touch;

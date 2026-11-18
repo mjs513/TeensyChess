@@ -62,8 +62,8 @@
 */
 
 #include <SPI.h>
-#include <ILI9341_t3.h>
-#include <XPT2046_Touchscreen.h>
+#include <ST7796_t3.h>
+#include <Adafruit_FT6206.h>
 
 #include "config.h"
 #include "game.h"
@@ -79,8 +79,8 @@ using namespace Stockfish;
 // ===========================
 // Hardware
 // ===========================
-ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC, TFT_RST);
-XPT2046_Touchscreen touch(0, 1);  // no T_IRQ pin: the library polls touch pressure over SPI
+ST7796_t3 tft = ST7796_t3(TFT_CS, TFT_DC, TFT_RST);
+Adafruit_FT6206 touch = Adafruit_FT6206();
 
 // ===========================
 // Game state
@@ -93,6 +93,8 @@ ChessGame game;
 BoardView view;
 State state = State::PlayerTurn;
 Color humanColor = WHITE;
+
+bool autoMode = false;
 
 bool promotionPending = false;  // the promotion picker is shown
 Square promoFrom = SQ_NONE, promoTo = SQ_NONE;
@@ -124,7 +126,8 @@ void warning() {
 }
 
 void refreshBoard() {
-  uiDrawBoard(game.pos(), view);
+   uiDrawBoard(game.pos(), view);
+   delay(1000);
 }
 
 void refreshPoints() {
@@ -134,41 +137,50 @@ void refreshPoints() {
 void refreshStatus() {
   char line2[24];
 
-  if (state == State::GameOver) {
-    switch (game.result()) {
-      case GameResult::WhiteMates:
-      case GameResult::BlackMates:
-        {
-          bool whiteWon = game.result() == GameResult::WhiteMates;
-          bool humanWon = whiteWon == (humanColor == WHITE);
-          uiDrawStatus("Checkmate!", humanWon ? COLOR_GOOD : COLOR_BAD, humanWon ? "You win!" : "You lost",
-                       COLOR_PANEL_TEXT);
-          break;
-        }
-      case GameResult::Stalemate: uiDrawStatus("Draw", COLOR_PANEL_ACCENT, "Stalemate", COLOR_PANEL_TEXT); break;
-      case GameResult::DrawFiftyMoves: uiDrawStatus("Draw", COLOR_PANEL_ACCENT, "50-move rule", COLOR_PANEL_TEXT); break;
-      case GameResult::DrawRepetition: uiDrawStatus("Draw", COLOR_PANEL_ACCENT, "Repetition", COLOR_PANEL_TEXT); break;
-      case GameResult::DrawMaterial: uiDrawStatus("Draw", COLOR_PANEL_ACCENT, "Material", COLOR_PANEL_TEXT); break;
-      default: break;
-    }
-    return;
-  }
+   if (state == State::GameOver) {
+      switch (game.result()) {
+         case GameResult::WhiteMates:
+         case GameResult::BlackMates:
+            {
+               bool whiteWon = game.result() == GameResult::WhiteMates;
+               bool humanWon = whiteWon == (humanColor == WHITE);
+               // MJC          uiDrawStatus("Checkmate!", humanWon ? COLOR_GOOD : COLOR_BAD, humanWon ? "You win!" : "You lost",
+               // MJC                      COLOR_PANEL_TEXT);
+               uiDrawStatus("Checkmate!", humanWon ? COLOR_GOOD : COLOR_BAD, whiteWon ? "WHITE wins" : "BLACK wins",
+                            COLOR_PANEL_TEXT);
+               break;
+            }
+         case GameResult::Stalemate: uiDrawStatus("Draw", COLOR_PANEL_ACCENT, "Stalemate", COLOR_PANEL_TEXT); break;
+         case GameResult::DrawFiftyMoves: uiDrawStatus("Draw", COLOR_PANEL_ACCENT, "50-move rule", COLOR_PANEL_TEXT); break;
+         case GameResult::DrawRepetition: uiDrawStatus("Draw", COLOR_PANEL_ACCENT, "Repetition", COLOR_PANEL_TEXT); break;
+         case GameResult::DrawMaterial: uiDrawStatus("Draw", COLOR_PANEL_ACCENT, "Material", COLOR_PANEL_TEXT); break;
+         default: break;
+      }
+      return;
+   }
 
-  if (state == State::EngineTurn) {
-    snprintf(line2, sizeof(line2), "Level %d", settings.level);
-    uiDrawStatus("Thinking...", COLOR_PANEL_ACCENT, line2, COLOR_PANEL_MUTED);
-    return;
-  }
+   if (state == State::EngineTurn) {
+      if ((autoMode) && (lastEngineMove[0]))
+      {
+         snprintf(line2, sizeof(line2), ENGINE_SHORT ": %s", lastEngineMove);
+         uiDrawStatus(game.sideToMove() == WHITE ? "BLACK move" : "WHITE move", COLOR_PANEL_ACCENT, line2, COLOR_PANEL_MUTED);
+         delay(500);
+      }
+      uiDrawStatus(game.sideToMove() == WHITE ? "WHITE move" : "BLACK move", COLOR_PANEL_ACCENT, "Thinking", COLOR_PANEL_MUTED);
+      return;
+   }
 
   if (lastEngineMove[0])
     snprintf(line2, sizeof(line2), ENGINE_SHORT ": %s", lastEngineMove);
   else
     snprintf(line2, sizeof(line2), "You are %s", humanColor == WHITE ? "white" : "black");
 
-  if (game.pos().checkers())
-    uiDrawStatus("Check!", COLOR_BAD, line2, COLOR_PANEL_TEXT);
-  else
-    uiDrawStatus("Your move", COLOR_GOOD, line2, COLOR_PANEL_TEXT);
+   if (game.pos().checkers())
+      uiDrawStatus("Check!", COLOR_BAD, line2, COLOR_PANEL_TEXT);
+   else if (humanColor == WHITE)
+      uiDrawStatus("WHITE move", COLOR_GOOD, line2, COLOR_PANEL_TEXT);
+   else
+      uiDrawStatus("BLACK move", COLOR_GOOD, line2, COLOR_PANEL_TEXT);
 }
 
 // The player can take back a move when one of their moves is in the history
@@ -208,13 +220,17 @@ void startGame() {
   game.reset();
   Engine::new_game();
 
-  humanColor = settings.humanWhite ? WHITE : BLACK;
-  view = BoardView();
-  view.flipped = humanColor == BLACK;
-  promotionPending = false;
-  hasEval = false;
-  hintText[0] = lastEngineMove[0] = '\0';
-  state = game.sideToMove() == humanColor ? State::PlayerTurn : State::EngineTurn;
+   humanColor = settings.humanWhite ? WHITE : BLACK;
+   view = BoardView();
+   view.flipped = humanColor == BLACK;
+   promotionPending = false;
+   hasEval = false;
+   hintText[0] = lastEngineMove[0] = '\0';
+
+   if (autoMode)
+      state = State::EngineTurn;
+   else
+      state = game.sideToMove() == humanColor ? State::PlayerTurn : State::EngineTurn;
 
   Serial.printf("New game: player has %s, level %d\n", humanColor == WHITE ? "white" : "black", settings.level);
   redrawScreen();
@@ -225,10 +241,12 @@ void afterMove() {
   view.selected = SQ_NONE;
   view.targets = 0;
 
-  if (game.result() != GameResult::Ongoing)
-    state = State::GameOver;
-  else
-    state = game.sideToMove() == humanColor ? State::PlayerTurn : State::EngineTurn;
+   if (game.result() != GameResult::Ongoing)
+      state = State::GameOver;
+   else if (autoMode)
+      state = State::EngineTurn;
+   else
+      state = game.sideToMove() == humanColor ? State::PlayerTurn : State::EngineTurn;
 
   refreshAll();
 }
@@ -255,8 +273,7 @@ void logSearch(const char *who, Move m, const Search::Result &r) {
 }
 
 void engineMove() {
-  refreshStatus();  // "Thinking..."
-  uiDrawButtons(false, false, false);
+   uiDrawButtons(false, false, false);
 
   Search::LimitsType limits;
   limits.movetime = ENGINE_TIME_MS(settings.level);
@@ -324,14 +341,23 @@ void undoMove() {
 }
 
 void newGameDialog() {
-  uint8_t white = settings.humanWhite, level = settings.level;
-  if (uiNewGameDialog(white, level)) {
-    settings.humanWhite = white;
-    settings.level = level;
-    saveSettings();
-    startGame();
-  } else
-    redrawScreen();
+   uint8_t white = settings.humanWhite, level = settings.level;
+   int8_t gameMode = uiNewGameDialog(white, level);
+
+   if (gameMode >= 0)
+   {
+      if (gameMode == 2)
+      {
+         autoMode = true;
+      } else {
+         autoMode = false;
+      }
+      settings.humanWhite = white;
+      settings.level = level;
+      saveSettings();
+      startGame();
+   } else
+      redrawScreen();
 }
 
 // ===========================
@@ -378,20 +404,20 @@ void handleBoardTap(Square s) {
     return;
   }
 
-  if (view.targets & square_bb(s)) {
-    click();
-    bool isPromotion;
-    Move m = game.findMove(view.selected, s, QUEEN, isPromotion);
-    if (isPromotion) {
-      promotionPending = true;
-      promoFrom = view.selected;
-      promoTo = s;
-      uiDrawPromotionPicker(humanColor);
+   if (view.targets & square_bb(s)) {
+      click();
+      bool isPromotion;
+      Move m = game.findMove(view.selected, s, QUEEN, isPromotion);
+      if (isPromotion) {
+         promotionPending = true;
+         promoFrom = view.selected;
+         promoTo = s;
+         uiDrawPromotionPicker(humanColor);
+         return;
+      }
+      if (m != Move::none()) playerMove(m);
       return;
-    }
-    if (m != Move::none()) playerMove(m);
-    return;
-  }
+   }
 
   // Another of our pieces that can move: pick that one up instead.
   // Anything else is an illegal move: warn and put the piece back.
@@ -547,10 +573,11 @@ void setup() {
   pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(BUZZER_PIN, LOW);
 
-  tft.begin();
+  tft.init(320, 480);
+  tft.invertDisplay(true);  // LCD requires colors to be inverted
   tft.setRotation(3);  // landscape, 320 x 240
-  touch.begin();
-  touch.setRotation(3);  // match the display orientation
+	
+  touch.begin(40);
 
   uiSplash();
 
@@ -561,7 +588,8 @@ void setup() {
   bool haveSettings = loadSettings();
   if (!haveSettings || calibrationRequested(200)) runTouchCalibration();
 
-  startGame();
+   //  startGame();
+   newGameDialog();
 }
 
 void loop() {

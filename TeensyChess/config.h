@@ -15,7 +15,7 @@
 //   Touch:   T_CS -> 0, T_IRQ -> not connected (the touch panel is polled)
 #define TFT_CS    10
 #define TFT_DC    9
-#define TFT_RST    8
+#define TFT_RST    0
 #define TOUCH_CS  0
 
 // Buzzer (+ -> pin 3, - -> GND), driven with PWM: the duty cycle sets the volume
@@ -30,9 +30,9 @@
 // ===========================
 // Screen layout
 // ===========================
-#define SCREEN_W     320
-#define SCREEN_H     240
-#define SQUARE_SIZE  30                  // 8 x 30 = 240 px board on the left
+#define SCREEN_W     480
+#define SCREEN_H     320
+#define SQUARE_SIZE  40                  // 8 x 40 = 320 px board on the left
 #define BOARD_PX     (8 * SQUARE_SIZE)
 #define PANEL_X      BOARD_PX           // info panel on the right
 #define PANEL_W      (SCREEN_W - BOARD_PX)
@@ -53,8 +53,8 @@
 // ===========================
 #define RGB565(r, g, b) uint16_t((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3))
 
-#define COLOR_LIGHT_SQUARE   RGB565(192, 192, 192)  // light grey
-#define COLOR_DARK_SQUARE    RGB565(60, 100, 200)   // medium blue
+#define COLOR_LIGHT_SQUARE   RGB565(251,194,115) //RGB565(192, 192, 192)  // light grey
+#define COLOR_DARK_SQUARE    RGB565(149,83,59)   //RGB565(60, 100, 200)   // medium blue
 #define COLOR_WHITE_PIECE    RGB565(255, 255, 255)
 #define COLOR_WHITE_OUTLINE  RGB565(0, 0, 0)
 #define COLOR_BLACK_PIECE    RGB565(0, 0, 0)

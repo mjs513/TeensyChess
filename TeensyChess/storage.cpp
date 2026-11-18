@@ -23,9 +23,9 @@ Settings settings;
 
 bool calibrationValid() {
   const Settings& s = settings;
-  if (s.calLeft < 0 || s.calLeft > 4095 || s.calRight < 0 || s.calRight > 4095) return false;
-  if (s.calTop < 0 || s.calTop > 4095 || s.calBottom < 0 || s.calBottom > 4095) return false;
-  return abs(s.calRight - s.calLeft) > 1000 && abs(s.calBottom - s.calTop) > 1000;
+  if (abs(s.calLeft) < 0 || abs(s.calLeft) > 479 || abs(s.calRight) < 0 || abs(s.calRight) > 479) return false;
+  if (abs(s.calTop) < 0 || abs(s.calTop) > 340 || abs(s.calBottom) < 0 || abs(s.calBottom) > 340) return false;
+  return abs(s.calRight - s.calLeft) > 100  && abs(s.calBottom - s.calTop) > 100;
 }
 
 bool loadSettings() {

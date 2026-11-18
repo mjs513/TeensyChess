@@ -19,7 +19,7 @@ bool wasPressed = false;  // getTap() edge detection
 void printCentered(const char *text, int y, const ILI9341_t3_font_t &font, uint16_t color) {
   tft.setFont(font);
   tft.setTextColor(color);
-  int w = tft.measureTextWidth(text);
+  int w = tft.strPixelLen(text);
   tft.setCursor((tft.width() - w) / 2, y);
   tft.print(text);
 }
@@ -49,10 +49,10 @@ void getTouchTarget(int X, int Y, long &rawX, long &rawY) {
 
   long sx = 0, sy = 0;
   int samples = 0;
-  while (touch.touched() && samples < 32) {
+  while (touch.touched()) {
     TS_Point p = touch.getPoint();
-    sx += p.x;
-    sy += p.y;
+    sx += p.y;
+    sy += p.x;
     samples++;
     delay(10);
   }
@@ -67,8 +67,8 @@ void getTouchTarget(int X, int Y, long &rawX, long &rawY) {
 
 // Convert a raw touch reading to screen coordinates using the calibration
 void mapTouch(const TS_Point &p, int &x, int &y) {
-  x = constrain(map(p.x, settings.calLeft, settings.calRight, 0, tft.width() - 1), 0, tft.width() - 1);
-  y = constrain(map(p.y, settings.calTop, settings.calBottom, 0, tft.height() - 1), 0, tft.height() - 1);
+  x = constrain(map(p.y, settings.calLeft, settings.calRight, 0, tft.width() - 1), 0, tft.width() - 1);
+  y = constrain(map(p.x, settings.calTop, settings.calBottom, 0, tft.height() - 1), 0, tft.height() - 1);
 }
 
 }  // namespace
@@ -129,12 +129,11 @@ void runTouchCalibration() {
   getTouchTarget(CAL_MARGIN, CAL_MARGIN, x1, y1);
   drawCalibrationText("Touch calibration", "Tap the crosshair", "Step 2 of 2");
   getTouchTarget(W - CAL_MARGIN, H - CAL_MARGIN, x2, y2);
-
   // raw counts per pixel times the margin gives the raw value at the true edge
-  settings.calLeft = constrain(x1 - ((x2 - x1) * CAL_MARGIN) / (W - 2 * CAL_MARGIN), 0, 4095);
-  settings.calRight = constrain(x2 + ((x2 - x1) * CAL_MARGIN) / (W - 2 * CAL_MARGIN), 0, 4095);
-  settings.calTop = constrain(y1 - ((y2 - y1) * CAL_MARGIN) / (H - 2 * CAL_MARGIN), 0, 4095);
-  settings.calBottom = constrain(y2 + ((y2 - y1) * CAL_MARGIN) / (H - 2 * CAL_MARGIN), 0, 4095);
+  settings.calLeft = x1 - ((x2 - x1) * CAL_MARGIN) / (W - 2 * CAL_MARGIN);
+  settings.calRight = x2 + ((x2 - x1) * CAL_MARGIN) / (W - 2 * CAL_MARGIN);
+  settings.calTop = y1 - ((y2 - y1) * CAL_MARGIN) / (H - 2 * CAL_MARGIN);
+  settings.calBottom = y2 + ((y2 - y1) * CAL_MARGIN) / (H - 2 * CAL_MARGIN);
   Serial.printf("Touch calibration: L %d  R %d  T %d  B %d\n", settings.calLeft, settings.calRight,
                 settings.calTop, settings.calBottom);
 
@@ -167,6 +166,7 @@ void runTouchCalibration() {
     Serial.println("Touch calibration rejected, not saved");
     drawCalibrationText("Calibration failed", "Not saved", "Restart and tap splash to retry");
   }
+
   delay(1500);
   waitForRelease();
 }
