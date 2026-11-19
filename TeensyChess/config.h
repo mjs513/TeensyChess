@@ -15,8 +15,8 @@
 //   Touch:   T_CS -> 0, T_IRQ -> not connected (the touch panel is polled)
 #define TFT_CS    10
 #define TFT_DC    9
-#define TFT_RST    0
-#define TOUCH_CS  0
+#define TFT_RST    8
+#define TOUCH_CS  7
 
 // Buzzer (+ -> pin 3, - -> GND), driven with PWM: the duty cycle sets the volume
 #define BUZZER_PIN       3

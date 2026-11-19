@@ -51,8 +51,13 @@ void getTouchTarget(int X, int Y, long &rawX, long &rawY) {
   int samples = 0;
   while (touch.touched()) {
     TS_Point p = touch.getPoint();
+  #if __has_include(<Adafruit_FT6206.h>)
     sx += p.y;
     sy += p.x;
+  #else
+    sx += p.x;
+    sy += p.y;
+  #endif
     samples++;
     delay(10);
   }
@@ -67,8 +72,13 @@ void getTouchTarget(int X, int Y, long &rawX, long &rawY) {
 
 // Convert a raw touch reading to screen coordinates using the calibration
 void mapTouch(const TS_Point &p, int &x, int &y) {
+#if __has_include(<Adafruit_FT6206.h>)
   x = constrain(map(p.y, settings.calLeft, settings.calRight, 0, tft.width() - 1), 0, tft.width() - 1);
   y = constrain(map(p.x, settings.calTop, settings.calBottom, 0, tft.height() - 1), 0, tft.height() - 1);
+#else
+  x = constrain(map(p.x, settings.calLeft, settings.calRight, 0, tft.width() - 1), 0, tft.width() - 1);
+  y = constrain(map(p.y, settings.calTop, settings.calBottom, 0, tft.height() - 1), 0, tft.height() - 1);
+#endif
 }
 
 }  // namespace

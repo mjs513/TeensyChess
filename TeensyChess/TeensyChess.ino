@@ -63,7 +63,6 @@
 
 #include <SPI.h>
 #include <ST7796_t3.h>
-#include <Adafruit_FT6206.h>
 
 #include "config.h"
 #include "game.h"
@@ -80,7 +79,11 @@ using namespace Stockfish;
 // Hardware
 // ===========================
 ST7796_t3 tft = ST7796_t3(TFT_CS, TFT_DC, TFT_RST);
+#if __has_include(<Adafruit_FT6206.h>)
 Adafruit_FT6206 touch = Adafruit_FT6206();
+#else
+XPT2046_Touchscreen touch(7,2);  // no T_IRQ pin: the library polls touch pressure over SPI
+#endif
 
 // ===========================
 // Game state
@@ -574,10 +577,16 @@ void setup() {
   digitalWrite(BUZZER_PIN, LOW);
 
   tft.init(320, 480);
-  tft.invertDisplay(true);  // LCD requires colors to be inverted
+  #if __has_include(<Adafruit_FT6206.h>)
+    tft.invertDisplay(true);  // LCD requires colors to be inverted
+  #endif
   tft.setRotation(3);  // landscape, 320 x 240
 	
+  #if __has_include(<Adafruit_FT6206.h>)
   touch.begin(40);
+  #else
+  touch.begin();
+  #endif
 
   uiSplash();
 
